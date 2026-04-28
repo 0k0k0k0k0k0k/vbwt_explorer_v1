@@ -1,0 +1,13 @@
+.Renviron
+.Rhistory
+.RData
+.DS_Store
+.git_bad_backup/
+.Rproj.user/
+
+data_processed/*backup*
+data_processed/*.csv
+data_processed/observations_processed*.rds
+data_processed/checklists_processed*.rds
+data_processed/vbwt_checklists.rds
+data_processed/vbwt_site_summary.rds

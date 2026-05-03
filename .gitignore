@@ -1,13 +1,40 @@
+# R project/session files
 .Renviron
 .Rhistory
 .RData
-.DS_Store
-.git_bad_backup/
 .Rproj.user/
+.positai
 
+# macOS/system files
+.DS_Store
+
+# Git/local backups
+.git_bad_backup/
+
+# Local/raw data
+data_raw/
+
+# Processed data backups and intermediate exports
 data_processed/*backup*
 data_processed/*.csv
 data_processed/observations_processed*.rds
 data_processed/checklists_processed*.rds
 data_processed/vbwt_checklists.rds
 data_processed/vbwt_site_summary.rds
+
+# Large non-slim processed data not used directly by current app.R
+data_processed/site_species_date_metrics.rds
+data_processed/site_species_month_all_year.rds
+
+# Duplicate slim RDS copies when QS2 files are the app inputs
+data_processed/slim/*_slim.rds
+
+# Local scripts and build utilities
+scripts/
+
+# Generated outputs and reports
+outputs/
+*.pdf
+
+# Extra local app folders
+app/

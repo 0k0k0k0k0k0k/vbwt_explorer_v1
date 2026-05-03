@@ -31,6 +31,7 @@ data_processed/slim/*_slim.rds
 
 # Local scripts and build utilities
 scripts/
+scripts_BACKUP_BEFORE_GITIGNORE/
 
 # Generated outputs and reports
 outputs/

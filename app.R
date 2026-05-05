@@ -2,7 +2,7 @@
 # Option 5: Combined Species Guide polish: profile card, recent card, and Seasonal Pattern graph card.
 # Trial polish: Best-version Species tab with guide chips, chart note, and best nearby site card.
 # Recent eBird sightings modify existing VBWT dots: larger dot, orange ring, dark outer outline, and popup details.
-# Site rating colors: Best #2A5235, Better #4F7A45, Good #8FAF5A, Low #F1E8B8.
+# Site rating colors: Best #2A5235, Better #4F7A45, Good #8FAF5A, Possible #F1E8B8.
 # Recent sightings draw above non-recent dots; recent eBird date links to checklist when available.
 
 library(shiny)
@@ -1318,9 +1318,9 @@ server <- function(input, output, session) {
       )
     ]
     
-    if (any(dt$Recommendation != "Low")) {
+    if (any(dt$Recommendation != "Possible")) {
       dt <- dt[
-        Recommendation != "Low"
+        Recommendation != "Possible"
       ]
     } else {
       dt <- dt[1]
@@ -1611,7 +1611,7 @@ server <- function(input, output, session) {
           "Best",
           "Better",
           "Good",
-          "Low"
+          "Possible"
         ),
         title = "Site rating",
         opacity = 0.9,
@@ -2265,7 +2265,7 @@ server <- function(input, output, session) {
     limited_records <- FALSE
     
     recommendation_strength <- if (best$recommendation_score < 0.05) {
-      "Low Likelihood VBWT Site"
+      "Possible VBWT Site"
     } else if (best$recommendation_score < 0.20) {
       "Good VBWT Site"
     } else if (best$recommendation_score < 0.50) {
@@ -2624,7 +2624,7 @@ server <- function(input, output, session) {
         "Limited Data",
         fifelse(
           recommendation_score < 0.05,
-          "Low Likelihood",
+          "Possible",
           fifelse(
             recommendation_score < 0.20,
             "Good",
@@ -2650,7 +2650,7 @@ server <- function(input, output, session) {
             Recommendation == "Good",
             3L,
             fifelse(
-              Recommendation == "Low Likelihood",
+              Recommendation == "Possible",
               2L,
               1L
             )
@@ -2670,9 +2670,9 @@ server <- function(input, output, session) {
       )
     ]
     
-    if (any(dt$Recommendation != "Low Likelihood")) {
+    if (any(dt$Recommendation != "Possible")) {
       dt <- dt[
-        Recommendation != "Low Likelihood"
+        Recommendation != "Possible"
       ]
     } else {
       dt <- dt[1]
@@ -2740,6 +2740,6 @@ server <- function(input, output, session) {
       setView(lng = -79.5, lat = 37.8, zoom = 5.7)
   })
 }
+# making this different
 
 shinyApp(ui, server)
-

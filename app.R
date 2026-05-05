@@ -1,6 +1,9 @@
-# Option 2: Sites with recent eBird sightings get a larger blue glow-style outline.
 # VBWT Explorer v1 - Phase 1 Core App
-# Color Option D: DWR-ish natural greens; recent sightings use strong blue outline.
+# Option 5: Combined Species Guide polish: profile card, recent card, and Seasonal Pattern graph card.
+# Trial polish: Best-version Species tab with guide chips, chart note, and best nearby site card.
+# Recent eBird sightings modify existing VBWT dots: larger dot, orange ring, dark outer outline, and popup details.
+# Site rating colors: Best #2A5235, Better #4F7A45, Good #8FAF5A, Low #F1E8B8.
+# Recent sightings draw above non-recent dots; recent eBird date links to checklist when available.
 
 library(shiny)
 library(qs2)
@@ -112,6 +115,82 @@ format_peak_season <- function(x) {
   
   if (x %in% names(season_labels)) return(season_labels[[x]])
   x
+}
+
+format_month_as_season <- function(month_num) {
+  if (is.na(month_num)) return(NA_character_)
+  
+  if (month_num %in% c(3, 4, 5)) {
+    return("Spring migration")
+  }
+  
+  if (month_num %in% c(6, 7)) {
+    return("Breeding season")
+  }
+  
+  if (month_num %in% c(8, 9, 10)) {
+    return("Fall migration")
+  }
+  
+  if (month_num %in% c(11, 12, 1, 2)) {
+    return("Winter")
+  }
+  
+  NA_character_
+}
+
+format_ordinal_week <- function(month_num, day_num) {
+  if (
+    is.na(month_num) || month_num < 1 || month_num > 12 ||
+    is.na(day_num) || day_num < 1 || day_num > 31
+  ) {
+    return(NA_character_)
+  }
+  
+  week_of_month <- ceiling(day_num / 7)
+  
+  week_label <- c(
+    "1st week of",
+    "2nd week of",
+    "3rd week of",
+    "4th week of",
+    "5th week of"
+  )[week_of_month]
+  
+  paste(week_label, month.name[month_num])
+}
+
+pluralize_species_for_title <- function(x) {
+  if (is.null(x) || is.na(x) || x == "") {
+    return(x)
+  }
+  
+  irregular_species_plurals <- c(
+    "Canada Goose" = "Canada Geese",
+    "Snow Goose" = "Snow Geese",
+    "Ross's Goose" = "Ross's Geese",
+    "Cackling Goose" = "Cackling Geese",
+    "Greater White-fronted Goose" = "Greater White-fronted Geese",
+    "Brant" = "Brant",
+    "Dunlin" = "Dunlin",
+    "Sanderling" = "Sanderlings"
+  )
+  
+  if (x %in% names(irregular_species_plurals)) {
+    return(irregular_species_plurals[[x]])
+  }
+  
+  last_word <- sub("^.*\\s", "", x)
+  
+  if (grepl("[^aeiou]y$", last_word, ignore.case = TRUE)) {
+    return(sub("y$", "ies", x, ignore.case = TRUE))
+  }
+  
+  if (grepl("(s|x|z|ch|sh)$", last_word, ignore.case = TRUE)) {
+    return(paste0(x, "es"))
+  }
+  
+  paste0(x, "s")
 }
 
 filter_by_month_day_range <- function(dt, date_col, start_date, end_date) {
@@ -430,6 +509,15 @@ ui <- fluidPage(
         cursor: pointer;
       }
 
+
+      .recent-ebird-ring-legend i {
+        background: transparent !important;
+        border: 3px solid #F36C21 !important;
+        border-radius: 50% !important;
+        box-sizing: border-box !important;
+        opacity: 0.8 !important;
+      }
+
       #rank_table table.dataTable th,
       #rank_table table.dataTable td,
       #iconic_table table.dataTable th,
@@ -546,20 +634,20 @@ ui <- fluidPage(
             create = TRUE,
             persist = FALSE,
             onInitialize = I("
-              function() {
-                var self = this;
-                this.$control_input.on('keydown', function(e) {
-                  if (e.keyCode === 13) {
-                    e.preventDefault();
-                    var val = self.$control_input.val();
-                    if (val.length > 0) {
-                      self.addOption({value: val, text: val});
-                      self.setValue(val);
-                    }
-                  }
-                  });
+          function() {
+            var self = this;
+            this.$control_input.on('keydown', function(e) {
+              if (e.keyCode === 13) {
+                e.preventDefault();
+                var val = self.$control_input.val();
+                if (val.length > 0) {
+                  self.addOption({value: val, text: val});
+                  self.setValue(val);
                 }
-                ")
+              }
+              });
+            }
+            ")
           )
         ),
         
@@ -592,8 +680,6 @@ ui <- fluidPage(
         ),
         
         sliderInput("radius", "Search Radius (miles)", 5, 150, 25, 5),
-        
-        tags$hr(),
         
         tags$div(
           style = "font-weight: 700; margin-bottom: 6px;",
@@ -634,54 +720,24 @@ ui <- fluidPage(
           "Map",
           div(
             style = "position: relative;",
-            leafletOutput("map", height = 500),
+            leafletOutput("map", height = 550),
             uiOutput("map_message")
           )
         ),
         
         tabPanel(
           "Species Guide",
-          uiOutput("species_guide_title"),
-          uiOutput("profile_box"),
-          
-          tags$hr(),
-          
-          uiOutput("recent_sightings_box"),
-          
-          tags$hr(),
-          
           div(
-            style = "display: flex; gap: 10px; max-width: 260px;",
-            
-            div(
-              style = "flex: 1;",
-              selectInput(
-                "bar_start_year",
-                "Start Year",
-                choices = year_choices,
-                selected = min(year_choices),
-                width = "100%"
-              )
-            ),
-            
-            div(
-              style = "flex: 1;",
-              selectInput(
-                "bar_end_year",
-                "End Year",
-                choices = year_choices,
-                selected = max(year_choices),
-                width = "100%"
-              )
-            )
-          ),
-          
-          plotOutput("seasonal_bar_chart", height = 225)
+            style = "max-width: 900px; margin: 0 auto;",
+            uiOutput("profile_box")
+          )
         ),
         
         tabPanel(
           "Recommended Sites",
           uiOutput("best_site_box"),
+          
+          uiOutput("recent_sightings_box"),
           
           tags$hr(),
           
@@ -903,13 +959,6 @@ server <- function(input, output, session) {
   # ======================
   
   recent_sightings <- reactive({
-    
-    if (!isTRUE(input$show_recent_sightings)) {
-      return(list(
-        data = data.table(),
-        message = NULL
-      ))
-    }
     
     req(input$zip, input$species, input$recent_days)
     
@@ -1228,7 +1277,7 @@ server <- function(input, output, session) {
       ,
       Recommendation := fifelse(
         recommendation_score < 0.05,
-        "Low",
+        "Possible",
         fifelse(
           recommendation_score < 0.20,
           "Good",
@@ -1281,14 +1330,14 @@ server <- function(input, output, session) {
       ,
       rating_color := fifelse(
         Recommendation == "Best",
-        "#123524",
+        "#2A5235",
         fifelse(
           Recommendation == "Better",
-          "#2a9d8f",
+          "#4F7A45",
           fifelse(
             Recommendation == "Good",
-            "#a7c957",
-            "#fefae0"
+            "#8FAF5A",
+            "#F1E8B8"
           )
         )
       )
@@ -1396,59 +1445,168 @@ server <- function(input, output, session) {
     
     dt[
       ,
+      recent_obsDt_display := format(
+        as.POSIXct(
+          recent_obsDt,
+          format = "%Y-%m-%d %H:%M",
+          tz = Sys.timezone()
+        ),
+        "%m/%d/%Y at %I:%M %p"
+      )
+    ]
+    
+    dt[
+      is.na(recent_obsDt_display),
+      recent_obsDt_display := format(
+        as.Date(substr(recent_obsDt, 1, 10)),
+        "%m/%d/%Y"
+      )
+    ]
+    
+    dt[
+      ,
+      recent_obsDt_display := gsub(
+        "^0",
+        "",
+        recent_obsDt_display
+      )
+    ]
+    
+    dt[
+      ,
+      recent_obsDt_display := gsub(
+        "/0",
+        "/",
+        recent_obsDt_display
+      )
+    ]
+    
+    dt[
+      ,
+      recent_obsDt_display := gsub(
+        " at 0([0-9]):",
+        " at \\1:",
+        recent_obsDt_display
+      )
+    ]
+    
+    dt[
+      ,
       recent_popup_text := ifelse(
         has_recent_sighting,
         paste0(
-          "Recent eBird sighting: ", recent_reported_label, "<br>",
-          "Date: ", recent_obsDt, "<br>",
+          "Most recent eBird sighting: ",
           ifelse(
             !is.na(recent_count),
-            paste0("Count: ", recent_count, "<br>"),
+            paste0(recent_count, " on "),
             ""
           ),
           ifelse(
             !is.na(recent_checklist_url) & recent_checklist_url != "",
-            paste0("<a href='", recent_checklist_url, "' target='_blank'>Open eBird checklist</a><br>"),
-            ""
-          )
+            paste0(
+              "<a href='",
+              recent_checklist_url,
+              "' target='_blank'>",
+              recent_obsDt_display,
+              "</a>"
+            ),
+            recent_obsDt_display
+          ),
+          "<br>"
         ),
         ""
       )
     ]
     
     dt[, recent_radius := ifelse(has_recent_sighting, 9, 6)]
-    dt[, recent_outline_color := ifelse(has_recent_sighting, "#1d4ed8", "#333333")]
+    dt[, recent_outline_color := ifelse(has_recent_sighting, "#F36C21", "#333333")]
     dt[, recent_outline_weight := ifelse(has_recent_sighting, 4, 1)]
     dt[, recent_marker_opacity := ifelse(has_recent_sighting, 1.0, 0.9)]
     
-    proxy |>
-      addCircleMarkers(
-        data = dt,
-        lng = ~site_longitude,
-        lat = ~site_latitude,
-        group = "VBWT Sites",
-        radius = ~recent_radius,
-        fillColor = ~rating_color,
-        color = ~recent_outline_color,
-        stroke = TRUE,
-        weight = ~recent_outline_weight,
-        opacity = ~recent_marker_opacity,
-        fillOpacity = 0.9,
-        popup = ~paste0(
-          "<b>", display_name, "</b><br>",
-          "Rating: ", Recommendation, "<br>",
-          "Distance: ", round(distance_miles, 1), " miles<br>",
-          recent_popup_text,
-          ifelse(
-            !is.na(vbwt_url) & vbwt_url != "",
-            paste0("<a href='", vbwt_url, "' target='_blank'>Open VBWT site webpage</a>"),
-            ""
-          )
+    dt[
+      ,
+      popup_site_name := ifelse(
+        !is.na(vbwt_url) & vbwt_url != "",
+        paste0(
+          "<a href='",
+          vbwt_url,
+          "' target='_blank'><b>",
+          display_name,
+          "</b></a>"
+        ),
+        paste0("<b>", display_name, "</b>")
+      )
+    ]
+    
+    dt[
+      ,
+      popup_text := paste0(
+        popup_site_name, "<br>",
+        "Rating: ", Recommendation, "<br>",
+        "Distance: ", round(distance_miles, 1), " miles<br>",
+        recent_popup_text
+      )
+    ]
+    
+    non_recent_dt <- dt[has_recent_sighting == FALSE]
+    recent_marker_dt <- dt[has_recent_sighting == TRUE]
+    
+    proxy <- proxy
+    
+    if (nrow(non_recent_dt) > 0) {
+      proxy <- proxy |>
+        addCircleMarkers(
+          data = non_recent_dt,
+          lng = ~site_longitude,
+          lat = ~site_latitude,
+          group = "VBWT Sites",
+          radius = ~recent_radius,
+          fillColor = ~rating_color,
+          color = ~recent_outline_color,
+          stroke = TRUE,
+          weight = ~recent_outline_weight,
+          opacity = ~recent_marker_opacity,
+          fillOpacity = 0.9,
+          popup = ~popup_text
         )
-      ) |>
+    }
+    
+    if (nrow(recent_marker_dt) > 0) {
+      proxy <- proxy |>
+        addCircleMarkers(
+          data = recent_marker_dt,
+          lng = ~site_longitude,
+          lat = ~site_latitude,
+          group = "VBWT Sites",
+          radius = 11,
+          fillColor = "#F36C21",
+          color = "#F36C21",
+          stroke = TRUE,
+          weight = 6,
+          opacity = 0.8,
+          fillOpacity = 0,
+          popup = ~popup_text
+        ) |>
+        addCircleMarkers(
+          data = recent_marker_dt,
+          lng = ~site_longitude,
+          lat = ~site_latitude,
+          group = "VBWT Sites",
+          radius = ~recent_radius,
+          fillColor = ~rating_color,
+          color = "#333333",
+          stroke = TRUE,
+          weight = 1,
+          opacity = ~recent_marker_opacity,
+          fillOpacity = 0.9,
+          popup = ~popup_text
+        )
+    }
+    
+    proxy <- proxy |>
       addLegend(
         position = "bottomleft",
-        colors = c("#123524", "#2a9d8f", "#a7c957", "#fefae0"),
+        colors = c("#2A5235", "#4F7A45", "#8FAF5A", "#F1E8B8"),
         labels = c(
           "Best",
           "Better",
@@ -1463,11 +1621,11 @@ server <- function(input, output, session) {
       proxy |>
         addLegend(
           position = "bottomright",
-          colors = c("#1d4ed8"),
-          labels = c("Recent eBird sighting"),
-          title = "Recent eBird sightings",
+          colors = c("#F36C21"),
+          labels = c("Recent eBird Sightings"),
           opacity = 0.9,
-          layerId = "recent_ebird_legend"
+          layerId = "recent_ebird_legend",
+          className = "info legend recent-ebird-ring-legend"
         )
     }
   })
@@ -1539,17 +1697,22 @@ server <- function(input, output, session) {
         distance_miles <= input$radius
     ]
     
-    if (nrow(nearby) == 0) return(NULL)
+    if (nrow(nearby) == 0) {
+      plot.new()
+      text(0.5, 0.5, "No results nearby", cex = 1.2)
+      return()
+    }
     
     dt_all <- site_species_month_yearly[
       locality_id %in% nearby$locality_id
     ]
     
-    req(input$bar_start_year <= input$bar_end_year)
+    bar_start_year <- min(year_choices)
+    bar_end_year <- max(year_choices)
     
     dt_all <- dt_all[
-      year >= as.integer(input$bar_start_year) &
-        year <= as.integer(input$bar_end_year)
+      year >= as.integer(bar_start_year) &
+        year <= as.integer(bar_end_year)
     ]
     
     denom_dt <- unique(
@@ -1587,39 +1750,53 @@ server <- function(input, output, session) {
         )
     ]
     
-    if (all(is.na(chart_dt$detection_rate))) return(NULL)
+    if (
+      all(is.na(chart_dt$detection_rate)) ||
+      max(chart_dt$detection_rate, na.rm = TRUE) <= 0
+    ) {
+      plot.new()
+      text(0.5, 0.5, "No results nearby", cex = 1.2)
+      return()
+    }
     
-    ggplot(chart_dt, aes(x = factor(month, levels = 1:12), y = detection_rate)) +
-      geom_col(width = 0.72, fill = "gray35") +
+    chart_dt[, is_peak_month := detection_rate == max(detection_rate, na.rm = TRUE)]
+    
+    ggplot(chart_dt, aes(x = factor(month, levels = 1:12), y = detection_rate, fill = is_peak_month)) +
+      geom_col(width = 0.72) +
+      scale_fill_manual(
+        values = c("FALSE" = "#2A5235", "TRUE" = "#2A5235"),
+        guide = "none"
+      ) +
       scale_x_discrete(labels = month.abb) +
       scale_y_continuous(
-        labels = percent_format(accuracy = 0.1),
+        labels = percent_format(accuracy = 1),
         expand = expansion(mult = c(0, 0.12))
       ) +
       labs(
-        title = paste0("Best Months to Look for ", input$species),
+        title = paste0("When to Look for ", pluralize_species_for_title(input$species)),
         subtitle = paste0(
-          "Based on complete eBird checklists from VBWT sites within ",
+          "at VBWT sites within ",
           input$radius,
           " miles of ZIP ",
           input$zip,
           ", ",
-          input$bar_start_year,
+          bar_start_year,
           "–",
-          input$bar_end_year
+          bar_end_year
         ),
         x = NULL,
         y = "Chance of seeing this species"
       ) +
       theme_minimal(base_size = 13) +
       theme(
-        plot.title = element_text(size = 18, face = "bold"),
-        plot.subtitle = element_text(size = 11, color = "gray35", margin = margin(b = 10)),
-        axis.title.y = element_text(size = 12, margin = margin(r = 8)),
-        axis.text.x = element_text(size = 11),
-        axis.text.y = element_text(size = 10),
-        panel.grid.minor = element_blank(),
+        plot.title = element_text(size = 18, face = "bold", color = "#2A5235", hjust = 0.5),
+        plot.subtitle = element_text(size = 11, color = "#6A6157", hjust = 0.5, margin = margin(b = 10)),
+        axis.title.y = element_text(size = 12, color = "#2A5235", face = "bold", margin = margin(r = 8)),
+        axis.text.x = element_text(size = 11, color = "#6A6157"),
+        axis.text.y = element_text(size = 10, color = "#6A6157"),
+        panel.grid.major.y = element_line(color = "#DFC9A2", linewidth = 0.3),
         panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank(),
         plot.margin = margin(10, 16, 10, 10)
       )
   })
@@ -1630,21 +1807,20 @@ server <- function(input, output, session) {
   
   output$recent_sightings_box <- renderUI({
     
-    if (!isTRUE(input$show_recent_sightings)) {
-      return(NULL)
-    }
-    
     recent <- recent_sightings()
     
     if (!is.null(recent$message)) {
       return(div(
         style = "
-        background: #f7f7f7;
-        border: 1px solid #dddddd;
-        border-radius: 8px;
-        padding: 12px 14px;
-        margin-top: 8px;
-        ",
+      background: #ffffff;
+      border: 1px solid #dddddd;
+      border-left: 5px solid #F36C21;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin: 12px auto 0 auto;
+      max-width: 900px;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.07);
+      ",
         h4(
           style = "margin-top: 0; margin-bottom: 8px;",
           "Recent eBird Sightings"
@@ -1712,12 +1888,15 @@ server <- function(input, output, session) {
     
     div(
       style = "
-        background: #f7f7f7;
-        border: 1px solid #dddddd;
-        border-radius: 8px;
-        padding: 12px 14px;
-        margin-top: 8px;
-        ",
+      background: #ffffff;
+      border: 1px solid #dddddd;
+      border-left: 5px solid #F36C21;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin: 12px auto 0 auto;
+      max-width: 900px;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.07);
+      ",
       h4(
         style = "margin-top: 0; margin-bottom: 8px;",
         "Recent eBird Sightings"
@@ -1739,22 +1918,6 @@ server <- function(input, output, session) {
   })
   
   # ======================
-  # SPECIES GUIDE TITLE -- SERVER
-  # ======================
-  
-  output$species_guide_title <- renderUI({
-    
-    if (
-      is.null(input$species) ||
-      input$species == ""
-    ) {
-      return(h4("Species Guide"))
-    }
-    
-    h4(paste0(input$species, " Guide"))
-  })
-  
-  # ======================
   # PROFILE TABLE -- SERVER
   # ======================
   
@@ -1767,23 +1930,296 @@ server <- function(input, output, session) {
       return(NULL)
     }
     
-    tags$table(
-      class = "table shiny-table",
-      tags$thead(
-        tags$tr(
-          tags$th("Species"),
-          tags$th("Scientific"),
-          tags$th("Statewide Peak Season"),
-          tags$th("Statewide Peak Week")
+    if (
+      is.null(input$zip) ||
+      input$zip == ""
+    ) {
+      peak_season <- "Enter ZIP code"
+      peak_month <- "Enter ZIP code"
+      peak_week <- "Enter ZIP code"
+    } else {
+      peak_season <- "No results nearby"
+      peak_month <- "No results nearby"
+      peak_week <- "No results nearby"
+    }
+    
+    if (
+      !is.null(input$zip) &&
+      input$zip != "" &&
+      !is.null(input$species) &&
+      input$species != ""
+    ) {
+      
+      bar_start_year <- min(year_choices)
+      bar_end_year <- max(year_choices)
+      
+      nearby <- zip_site_distances[
+        zip == input$zip &
+          distance_miles <= input$radius
+      ]
+      
+      if (nrow(nearby) > 0) {
+        
+        dt_all <- site_species_month_yearly[
+          locality_id %in% nearby$locality_id
+        ]
+        
+        dt_all <- dt_all[
+          year >= as.integer(bar_start_year) &
+            year <= as.integer(bar_end_year)
+        ]
+        
+        denom_month <- unique(
+          dt_all[, .(locality_id, year, month, n_complete_checklists)]
+        )[
+          ,
+          .(n_complete_checklists = sum(n_complete_checklists, na.rm = TRUE)),
+          by = month
+        ]
+        
+        species_month <- dt_all[
+          common_name == input$species,
+          .(
+            n_complete_checklists_with_species =
+              sum(n_complete_checklists_with_species, na.rm = TRUE)
+          ),
+          by = month
+        ]
+        
+        month_dt <- data.table(month = 1:12)
+        
+        month_dt <- merge(month_dt, denom_month, by = "month", all.x = TRUE)
+        month_dt <- merge(month_dt, species_month, by = "month", all.x = TRUE)
+        
+        month_dt[is.na(n_complete_checklists), n_complete_checklists := 0]
+        month_dt[is.na(n_complete_checklists_with_species), n_complete_checklists_with_species := 0]
+        
+        month_dt[
+          ,
+          detection_rate :=
+            ifelse(
+              n_complete_checklists > 0,
+              n_complete_checklists_with_species / n_complete_checklists,
+              0
+            )
+        ]
+        
+        if (nrow(month_dt) > 0 && max(month_dt$detection_rate, na.rm = TRUE) > 0) {
+          peak_month_row <- month_dt[which.max(detection_rate)]
+          peak_month_num <- peak_month_row$month
+          
+          peak_month <- month.name[peak_month_num]
+          peak_season <- format_month_as_season(peak_month_num)
+        }
+        
+        denom_week <- site_date_denoms[
+          locality_id %in% nearby$locality_id
+        ]
+        
+        denom_week <- denom_week[
+          as.integer(format(as.Date(observation_date), "%Y")) >= as.integer(bar_start_year) &
+            as.integer(format(as.Date(observation_date), "%Y")) <= as.integer(bar_end_year)
+        ]
+        
+        denom_week[
+          ,
+          `:=`(
+            peak_month_num = as.integer(format(as.Date(observation_date), "%m")),
+            peak_week_num = ceiling(as.integer(format(as.Date(observation_date), "%d")) / 7)
+          )
+        ]
+        
+        denom_week <- denom_week[
+          ,
+          .(
+            n_complete_checklists = sum(n_complete_checklists, na.rm = TRUE)
+          ),
+          by = .(peak_month_num, peak_week_num)
+        ]
+        
+        species_week <- site_species_date[
+          common_name == input$species &
+            locality_id %in% nearby$locality_id
+        ]
+        
+        species_week <- species_week[
+          as.integer(format(as.Date(observation_date), "%Y")) >= as.integer(bar_start_year) &
+            as.integer(format(as.Date(observation_date), "%Y")) <= as.integer(bar_end_year)
+        ]
+        
+        species_week[
+          ,
+          `:=`(
+            peak_month_num = as.integer(format(as.Date(observation_date), "%m")),
+            peak_week_num = ceiling(as.integer(format(as.Date(observation_date), "%d")) / 7)
+          )
+        ]
+        
+        species_week <- species_week[
+          ,
+          .(
+            n_complete_checklists_with_species =
+              sum(n_complete_checklists_with_species, na.rm = TRUE)
+          ),
+          by = .(peak_month_num, peak_week_num)
+        ]
+        
+        week_dt <- merge(
+          denom_week,
+          species_week,
+          by = c("peak_month_num", "peak_week_num"),
+          all.x = TRUE,
+          sort = FALSE
+        )
+        
+        week_dt[is.na(n_complete_checklists_with_species), n_complete_checklists_with_species := 0]
+        
+        week_dt[
+          ,
+          detection_rate :=
+            n_complete_checklists_with_species / pmax(n_complete_checklists, 1)
+        ]
+        
+        if (nrow(week_dt) > 0 && max(week_dt$detection_rate, na.rm = TRUE) > 0) {
+          peak_week_row <- week_dt[
+            order(
+              -detection_rate,
+              -n_complete_checklists_with_species,
+              -n_complete_checklists
+            )
+          ][1]
+          
+          peak_week_day <- ((peak_week_row$peak_week_num - 1) * 7) + 1
+          
+          peak_week <- format_ordinal_week(
+            peak_week_row$peak_month_num,
+            peak_week_day
+          )
+        }
+      }
+    }
+    
+    div(
+      style = "background: #DFC9A2; border: 2px solid #2A5235; border-radius: 14px; padding: 22px 24px; margin-top: 8px; margin-bottom: 12px;",
+      tags$div(style = "font-size: clamp(30px, 4vw, 42px); line-height: 1.08; color: #2A5235; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;", p$common_name),
+      tags$div(style = "font-size: 23px; color: #6A6157; margin-bottom: 18px;", tags$em(p$scientific_name)),
+      div(
+        style = "display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;",
+        div(
+          style = "background: #A19857; border-radius: 12px; padding: 13px 14px; min-width: 0;",
+          tags$div(style = "font-size: 12px; color: #79441C; font-weight: 700; margin-bottom: 4px;", "Peak Season:"),
+          tags$div(style = "font-size: 14px; color: #2A5235; font-weight: 600;", peak_season)
+        ),
+        div(
+          style = "background: #A19857; border-radius: 12px; padding: 13px 14px; min-width: 0;",
+          tags$div(style = "font-size: 12px; color: #79441C; font-weight: 700; margin-bottom: 4px;", "Peak Month:"),
+          tags$div(style = "font-size: 14px; color: #2A5235; font-weight: 600;", peak_month)
+        ),
+        div(
+          style = "background: #A19857; border-radius: 12px; padding: 13px 14px; min-width: 0;",
+          tags$div(style = "font-size: 12px; color: #79441C; font-weight: 700; margin-bottom: 4px;", "Peak Week:"),
+          tags$div(style = "font-size: 14px; color: #2A5235; font-weight: 600;", peak_week)
         )
       ),
-      tags$tbody(
-        tags$tr(
-          tags$td(p$common_name),
-          tags$td(tags$em(p$scientific_name)),
-          tags$td(format_peak_season(p$strongest_va_season)),
-          tags$td(format_peak_week(p$max_week))
+      div(
+        style = "margin-top: 24px; border-radius: 12px; overflow: hidden;",
+        plotOutput("seasonal_bar_chart", height = 225)
+      ),
+    )
+  })
+  
+  # ======================
+  # SEASONAL CHART NOTE -- SERVER
+  # ======================
+  
+  output$seasonal_chart_note <- renderUI({
+    
+    req(input$zip, input$species)
+    
+    nearby <- zip_site_distances[
+      zip == input$zip &
+        distance_miles <= input$radius
+    ]
+    
+    if (nrow(nearby) == 0) return(NULL)
+    
+    dt_all <- site_species_month_yearly[
+      locality_id %in% nearby$locality_id
+    ]
+    
+    bar_start_year <- min(year_choices)
+    bar_end_year <- max(year_choices)
+    
+    dt_all <- dt_all[
+      year >= as.integer(bar_start_year) &
+        year <= as.integer(bar_end_year)
+    ]
+    
+    denom_dt <- unique(
+      dt_all[, .(locality_id, year, month, n_complete_checklists)]
+    )[
+      ,
+      .(n_complete_checklists = sum(n_complete_checklists, na.rm = TRUE)),
+      by = month
+    ]
+    
+    species_dt <- dt_all[
+      common_name == input$species,
+      .(
+        n_complete_checklists_with_species =
+          sum(n_complete_checklists_with_species, na.rm = TRUE)
+      ),
+      by = month
+    ]
+    
+    chart_dt <- data.table(month = 1:12)
+    
+    chart_dt <- merge(chart_dt, denom_dt, by = "month", all.x = TRUE)
+    chart_dt <- merge(chart_dt, species_dt, by = "month", all.x = TRUE)
+    
+    chart_dt[is.na(n_complete_checklists), n_complete_checklists := 0]
+    chart_dt[is.na(n_complete_checklists_with_species), n_complete_checklists_with_species := 0]
+    
+    chart_dt[
+      ,
+      detection_rate :=
+        ifelse(
+          n_complete_checklists > 0,
+          n_complete_checklists_with_species / n_complete_checklists,
+          0
         )
+    ]
+    
+    if (nrow(chart_dt) == 0 || max(chart_dt$detection_rate, na.rm = TRUE) <= 0) {
+      return(NULL)
+    }
+    
+    top_months <- chart_dt[
+      order(-detection_rate)
+    ][1:min(.N, 3)]
+    
+    top_month_labels <- paste(
+      month.name[top_months$month],
+      collapse = ", "
+    )
+    
+    peak <- top_months[1]
+    
+    tags$p(
+      style = "
+    text-align: center;
+    font-size: 13px;
+    color: #555555;
+    margin: -2px 0 2px 0;
+    ",
+      paste0(
+        "Most likely months: ",
+        top_month_labels,
+        ". Peak month: ",
+        month.name[peak$month],
+        " (",
+        percent(peak$detection_rate, accuracy = 0.1),
+        ")."
       )
     )
   })
@@ -1945,12 +2381,12 @@ server <- function(input, output, session) {
     
     div(
       style = "
-                          background: #f7f7f7;
-                          border: 1px solid #dddddd;
-                          border-radius: 8px;
-                          padding: 14px 16px;
-                          margin-bottom: 10px;
-                          ",
+                        background: #f7f7f7;
+                        border: 1px solid #dddddd;
+                        border-radius: 8px;
+                        padding: 14px 16px;
+                        margin-bottom: 10px;
+                        ",
       
       h4(
         style = "margin-top: 0; margin-bottom: 8px;",
@@ -2123,10 +2559,10 @@ server <- function(input, output, session) {
           id = "map-message",
           tags$div(
             style = "font-weight: 700; margin-bottom: 6px;",
-            "No results found"
+            "No results nearby"
           ),
           tags$div(
-            "Try a different date range, month, wider search radius, or lower checklist minimum."
+            "Try a different date range, month, or wider search radius."
           )
         )
       } else {
@@ -2147,7 +2583,7 @@ server <- function(input, output, session) {
     ) {
       h4("Top Sites")
     } else {
-      h4(paste0("Top Sites for ", input$species))
+      h4(paste0("Top Sites for ", pluralize_species_for_title(input$species)))
     }
   })
   
@@ -2298,8 +2734,6 @@ server <- function(input, output, session) {
       start = date_default_start,
       end = date_default_end
     )
-    updateSelectInput(session, "bar_start_year", selected = min(year_choices))
-    updateSelectInput(session, "bar_end_year", selected = max(year_choices))
     leafletProxy("map") |>
       clearMarkers() |>
       clearControls() |>
@@ -2308,3 +2742,4 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+

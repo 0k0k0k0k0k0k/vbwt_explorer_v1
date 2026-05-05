@@ -7,6 +7,7 @@
 
 # macOS/system files
 .DS_Store
+._*
 
 # Git/local backups
 .git_bad_backup/
@@ -34,13 +35,11 @@ scripts/
 scripts_BACKUP_BEFORE_GITIGNORE/
 
 # Generated outputs and reports
-outputs/
+outputs/*
+!outputs/iconic_species_candidates_edited.csv
+!outputs/iconic_species_candidates_with_rarity_chase_flags.csv
 *.pdf
 
 # Extra local app folders
 app/apps/
-deploy_app/
-
-outputs/*
-!outputs/iconic_species_candidates_edited.csv
-!outputs/iconic_species_candidates_with_rarity_chase_flags.csv
+deploy_app/ 

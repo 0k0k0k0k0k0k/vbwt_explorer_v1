@@ -38,4 +38,9 @@ outputs/
 *.pdf
 
 # Extra local app folders
-app/
+app/apps/
+deploy_app/
+
+outputs/*
+!outputs/iconic_species_candidates_edited.csv
+!outputs/iconic_species_candidates_with_rarity_chase_flags.csv

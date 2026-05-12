@@ -1,3 +1,4 @@
+# Updated
 # VBWT Explorer v1 - Phase 1 Core App
 # Option 5: Combined Species Guide polish: profile card, recent card, and Seasonal Pattern graph card.
 # Trial polish: Best-version Species tab with guide chips, chart note, and best nearby site card.

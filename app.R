@@ -426,9 +426,19 @@ fetch_recent_ebird_observations <- function(
 # UI -- UI INPUT PREP -- SETUP
 # ======================
 
-valid_species <- profile[
-  !is.na(percent_pop_breeding) &
-    percent_pop_breeding >= 0.01,
+species_list_file <- "data_processed/species_list.csv"
+
+species_list <- data.table::fread(species_list_file)
+
+if (!"common_name" %in% names(species_list)) {
+  stop("species_list.csv must contain a column named 'common_name'.")
+}
+
+species_list[, common_name := trimws(common_name)]
+
+valid_species <- species_list[
+  !is.na(common_name) &
+    common_name != "",
   unique(common_name)
 ]
 
@@ -634,20 +644,20 @@ ui <- fluidPage(
             create = TRUE,
             persist = FALSE,
             onInitialize = I("
-          function() {
-            var self = this;
-            this.$control_input.on('keydown', function(e) {
-              if (e.keyCode === 13) {
-                e.preventDefault();
-                var val = self.$control_input.val();
-                if (val.length > 0) {
-                  self.addOption({value: val, text: val});
-                  self.setValue(val);
+              function() {
+                var self = this;
+                this.$control_input.on('keydown', function(e) {
+                  if (e.keyCode === 13) {
+                    e.preventDefault();
+                    var val = self.$control_input.val();
+                    if (val.length > 0) {
+                      self.addOption({value: val, text: val});
+                      self.setValue(val);
+                    }
+                  }
+                  });
                 }
-              }
-              });
-            }
-            ")
+                ")
           )
         ),
         
@@ -1812,15 +1822,15 @@ server <- function(input, output, session) {
     if (!is.null(recent$message)) {
       return(div(
         style = "
-      background: #ffffff;
-      border: 1px solid #dddddd;
-      border-left: 5px solid #F36C21;
-      border-radius: 12px;
-      padding: 12px 14px;
-      margin: 12px auto 0 auto;
-      max-width: 900px;
-      box-shadow: 0 1px 5px rgba(0,0,0,0.07);
-      ",
+        background: #ffffff;
+        border: 1px solid #dddddd;
+        border-left: 5px solid #F36C21;
+        border-radius: 12px;
+        padding: 12px 14px;
+        margin: 12px auto 0 auto;
+        max-width: 900px;
+        box-shadow: 0 1px 5px rgba(0,0,0,0.07);
+        ",
         h4(
           style = "margin-top: 0; margin-bottom: 8px;",
           "Recent eBird Sightings"
@@ -1888,15 +1898,15 @@ server <- function(input, output, session) {
     
     div(
       style = "
-      background: #ffffff;
-      border: 1px solid #dddddd;
-      border-left: 5px solid #F36C21;
-      border-radius: 12px;
-      padding: 12px 14px;
-      margin: 12px auto 0 auto;
-      max-width: 900px;
-      box-shadow: 0 1px 5px rgba(0,0,0,0.07);
-      ",
+        background: #ffffff;
+        border: 1px solid #dddddd;
+        border-left: 5px solid #F36C21;
+        border-radius: 12px;
+        padding: 12px 14px;
+        margin: 12px auto 0 auto;
+        max-width: 900px;
+        box-shadow: 0 1px 5px rgba(0,0,0,0.07);
+        ",
       h4(
         style = "margin-top: 0; margin-bottom: 8px;",
         "Recent eBird Sightings"
@@ -2207,11 +2217,11 @@ server <- function(input, output, session) {
     
     tags$p(
       style = "
-    text-align: center;
-    font-size: 13px;
-    color: #555555;
-    margin: -2px 0 2px 0;
-    ",
+      text-align: center;
+      font-size: 13px;
+      color: #555555;
+      margin: -2px 0 2px 0;
+      ",
       paste0(
         "Most likely months: ",
         top_month_labels,
@@ -2381,12 +2391,12 @@ server <- function(input, output, session) {
     
     div(
       style = "
-                        background: #f7f7f7;
-                        border: 1px solid #dddddd;
-                        border-radius: 8px;
-                        padding: 14px 16px;
-                        margin-bottom: 10px;
-                        ",
+                          background: #f7f7f7;
+                          border: 1px solid #dddddd;
+                          border-radius: 8px;
+                          padding: 14px 16px;
+                          margin-bottom: 10px;
+                          ",
       
       h4(
         style = "margin-top: 0; margin-bottom: 8px;",
